@@ -1,0 +1,1 @@
+{"name":"ercot-peak-demand-rohan","private":true,"type":"module","scripts":{"test":"node verify.mjs","dev":"node preview.mjs"}}

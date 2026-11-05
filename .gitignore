@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+.ipython/
+.jupyter_runtime/
+outputs/
+*.tar.gz
+*.zip
+!docs/downloads/ERCOT_raw_datasets.zip

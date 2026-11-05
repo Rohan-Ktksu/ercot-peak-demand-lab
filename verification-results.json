@@ -1,0 +1,10 @@
+{
+  "status": "passed",
+  "dates": 729,
+  "hours": 17496,
+  "features": 24,
+  "trees": 300,
+  "max_native_score_error": 5.960464477539063e-8,
+  "all_daily_peaks_match_native": true,
+  "metrics_match_research": true
+}
