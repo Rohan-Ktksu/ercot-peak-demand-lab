@@ -1,4 +1,5 @@
 import {inferDay} from './inference.mjs';
+import {scenarioRows} from './synthetic.mjs';
 
 const $ = id => document.getElementById(id);
 const zone = 'America/Chicago';
@@ -73,6 +74,7 @@ function svgElement(name, attributes={}, text='') {
 }
 function renderChart() {
   if(!current)return;
+  if(current.modelName?.startsWith('SYNTHETIC')&&chartView==='demand'){ $('chart-note').textContent='Future actual demand is unknown. No demand curve is fabricated.';return;}
   const {rows,scores,winner,windowStart,windowEnd}=current;
   const demand=chartView==='demand';
   const values=demand?rows.map(row=>row[1]):scores;
@@ -181,6 +183,7 @@ async function approximateFuture(date, sequence){
   const parsed=new Date(date+'T12:00:00Z');if(Number.isNaN(parsed.valueOf())||parsed.toISOString().slice(0,10)!==date)throw Error('Enter a valid calendar date.');
   const data=await getJSON('data/future-approximation.json');if(sequence!==requestSequence)return;const month=parsed.getUTCMonth()+1,weekday=(parsed.getUTCDay()+6)%7;
   const group=data.groups[month+'-'+weekday];
+  if($('synthetic-mode').checked){await simulateFuture(date,sequence);return;}
   // Resolve the chosen local civil hour via Intl, including future DST offsets.
   let peak=Date.parse(date+'T'+String(group.hour).padStart(2,'0')+':00:00Z');
   for(let i=0;i<2;i++){const parts=new Intl.DateTimeFormat('en-CA',{timeZone:zone,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(peak);const v=Object.fromEntries(parts.map(p=>[p.type,p.value]));const represented=Date.parse(`${v.year}-${v.month}-${v.day}T${v.hour}:${v.minute}:00Z`);peak+=Date.parse(date+'T'+String(group.hour).padStart(2,'0')+':00:00Z')-represented;}
@@ -197,4 +200,22 @@ async function approximateFuture(date, sequence){
   $('loading').hidden=true;$('error').hidden=true;$('result').setAttribute('aria-busy','false');
  }catch(error){if(sequence===requestSequence)showError(error.message);}
  finally{if(sequence===requestSequence)setBusy(false);}
+}
+
+async function simulateFuture(date,sequence){
+ const profiles=await getJSON('data/synthetic-profiles.json');
+ if(sequence!==requestSequence)return;
+ const {rows,source}=scenarioRows(date,profiles,model.features);
+ const result=inferDay(model,rows);
+ current={date,rows,features:model.features,modelName:'SYNTHETIC SCENARIO / full reference XGBoost',...result};
+ $('result-date').textContent=date+' / SYNTHETIC SIMULATION';
+ $('window-title').textContent=hourFormat.format(result.windowStart)+' – '+hourFormat.format(result.windowEnd);
+ $('center-hour').textContent='Simulated center: '+hourFormat.format(result.peakStart);
+ $('zone').textContent=zoneName(result.peakStart)+' / CENTRAL TIME';
+ document.querySelector('.result-note').textContent='SIMULATION ONLY — NOT A REAL FORECAST. Synthetic inputs reuse a 2023 historical analog ('+source+'), including previous-day, 2/7/14-day load features and weather. Calendar features are updated for your date. Future demand and weather are unknown; this window can be wrong. No validated future accuracy is available.';
+ $('coverage-label').textContent='SYNTHETIC SCENARIO';$('coverage').textContent='Not validated';$('exact').textContent='Not available';
+ document.querySelector('.coverage-card>p').textContent='No real future observations exist in this scenario. Historical model scores do not measure synthetic scenario accuracy. Simulations are excluded from training and testing metrics.';
+ chartView='ranking';renderChart();renderInputs();
+ $('chart-note').textContent='Synthetic-input model ranking, not a real demand curve or calibrated probability. The demand view is unavailable for synthetic scenarios.';
+ $('download-prediction').disabled=true;$('loading').hidden=true;
 }
