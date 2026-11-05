@@ -22,9 +22,9 @@ async function loadYear(year) {
   return years.get(year);
 }
 function setBusy(busy) {
-  $('run-button').disabled=busy;
+  $('run-button').disabled=busy||!window.ercotLab?.tested;
   $('run-button').innerHTML=busy?'Running model…':'Run prediction <span aria-hidden="true">↗</span>';
-  document.querySelectorAll('.example').forEach(button=>{button.disabled=busy;});
+  document.querySelectorAll('.example').forEach(button=>{button.disabled=busy||!window.ercotLab?.tested;});
   $('result').setAttribute('aria-busy',String(busy));
 }
 function showError(message) { $('error').hidden=false;$('error').textContent=message; }
@@ -37,15 +37,15 @@ async function predict(date, updateURL=true) {
   if (!/^202[45]-\d{2}-\d{2}$/.test(date)) {
     showError('Choose a historical date from January 2024 to December 2025. A future forecast needs current load and weather inputs.');return;
   }
-  if (!model) {showError('The model is still loading. Please try again in a moment.');return;}
+  if (!window.ercotLab?.tested) {showError('Train, compare and test the browser models first.');return;}
   setBusy(true);$('loading').hidden=false;$('loading').textContent='Reading archived inputs and running the 300 fitted trees…';
   try {
-    const data = await loadYear(Number(date.slice(0,4)));
+    const browserResult = await window.ercotLab.predict(date);
     if (sequence!==requestSequence) return;
-    const rows = data[date];
-    if (!rows) throw new Error('This date has incomplete archived demand. December 4–5, 2025 are excluded. Please choose another date.');
-    const prediction = inferDay(model,rows);
-    current = {date,rows,...prediction};
+    const rows=browserResult.rows,peakStart=rows[browserResult.winner][0];
+    const prediction={scores:browserResult.scores,winner:browserResult.winner,peakStart,peakEnd:peakStart+3600000,windowStart:peakStart-3600000,windowEnd:peakStart+7200000};
+    current={date,rows,features:browserResult.features,modelName:browserResult.model,...prediction};
+    document.querySelector('.result-note').textContent='Browser-trained '+browserResult.model+' · 24 selected inputs. Historical illustration, not a calibrated probability.';
     $('date').value=date;
     $('result-date').textContent=dateFormat.format(prediction.peakStart).toUpperCase()+' / PEAK-DEMAND WINDOW';
     $('window-title').replaceChildren(document.createTextNode(hourFormat.format(prediction.windowStart)+' – '+hourFormat.format(prediction.windowEnd)));
@@ -53,7 +53,7 @@ async function predict(date, updateURL=true) {
     $('center-hour').textContent=hourFormat.format(prediction.peakStart)+' – '+hourFormat.format(prediction.peakEnd);
     $('zone').textContent=zoneName(prediction.peakStart)+' / CENTRAL TIME';
     const metrics=research.diagnostics.find(row=>row.year===Number(date.slice(0,4))&&row.model===research.model_key);
-    $('coverage-label').textContent=date.slice(0,4)+' HISTORICAL DIAGNOSTICS';
+    $('coverage-label').textContent='PYTHON REFERENCE · '+date.slice(0,4);
     $('coverage').textContent=(metrics.within_one_hour_accuracy*100).toFixed(1)+'%';
     $('exact').textContent=percent(metrics.exact_peak_hour_accuracy);
     $('download-prediction').disabled=false;
@@ -99,7 +99,7 @@ function renderChart() {
   $('chart-note').textContent=demand?'Recorded demand is shown for retrospective context only. It does not enter the model call.':`Relative model ranking across ${rows.length} hourly intervals. Scores rank hours within a day; they are not calibrated probabilities.`;
 }
 function renderInputs() {
-  const headings=['Hour / Central Time',...model.features];
+  const headings=['Hour / Central Time',...(current.features??model.features)];
   const header='<thead><tr>'+headings.map(name=>'<th scope="col">'+escape(name)+'</th>').join('')+'</tr></thead>';
   const body=current.rows.map((row,index)=>'<tr'+(index===current.winner?' class="chosen-row"':'')+'><td>'+escape(hourFormat.format(row[0])+' '+zoneName(row[0]))+'</td>'+row[2].map(value=>'<td>'+(value===null?'Missing':Number(value).toLocaleString('en-US',{maximumFractionDigits:3}))+'</td>').join('')+'</tr>').join('');
   $('input-table').innerHTML='<table><caption class="sr-only">Selected model input values, not target demand</caption>'+header+'<tbody>'+body+'</tbody></table>';
@@ -120,7 +120,7 @@ function saveFile(name,text,type='text/csv;charset=utf-8') {
 function downloadPrediction() {
   if(!current)return;
   const columns=['date','area','timezone','model','features','predicted_peak_start_utc','predicted_peak_end_utc','window_start_utc','window_end_utc','window_start_central','window_end_central','scope'];
-  const values=[current.date,'ERCOT system',zone,'XGBoost Classifier',24,new Date(current.peakStart).toISOString(),new Date(current.peakEnd).toISOString(),new Date(current.windowStart).toISOString(),new Date(current.windowEnd).toISOString(),hourFormat.format(current.windowStart)+' '+zoneName(current.windowStart),hourFormat.format(current.windowEnd)+' '+zoneName(current.windowEnd),'Historical illustration; not a live forecast or calibrated probability'];
+  const values=[current.date,'ERCOT system',zone,current.modelName,24,new Date(current.peakStart).toISOString(),new Date(current.peakEnd).toISOString(),new Date(current.windowStart).toISOString(),new Date(current.windowEnd).toISOString(),hourFormat.format(current.windowStart)+' '+zoneName(current.windowStart),hourFormat.format(current.windowEnd)+' '+zoneName(current.windowEnd),'Historical illustration; not a live forecast or calibrated probability'];
   const quote=value=>'"'+String(value).replace(/"/g,'""')+'"';
   saveFile(`ERCOT-window-${current.date}.csv`,columns.join(',')+'\n'+values.map(quote).join(',')+'\n');
 }
@@ -166,9 +166,8 @@ async function initialize() {
     [model,research]=await Promise.all([getJSON('data/model.json'),getJSON('data/research.json')]);
     $('model-state').textContent='Ready';$('evaluate').disabled=false;
     $('feature-list').replaceChildren(...model.features.map(name=>{const node=document.createElement('code');node.textContent=name;return node;}));
-    renderComparison();setBusy(false);
-    const date=new URL(location.href).searchParams.get('date')??'2025-07-15';
-    await predict(date);
+    renderComparison();setBusy(false);$('loading').textContent='Train, compare and test above to unlock prediction.';$('window-title').textContent='Train and test first';$('result').setAttribute('aria-busy','false');
   }catch(error){showError(error.message);$('loading').hidden=true;$('model-state').textContent='Unavailable';$('run-button').textContent='Refresh to retry';}
 }
+window.addEventListener('ercot-lab-tested',()=>{setBusy(false);predict($('date').value);});
 initialize();

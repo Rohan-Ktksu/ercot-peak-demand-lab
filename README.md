@@ -17,9 +17,37 @@ also exists on Sites; the GitHub Pages link above is the public project website.
 
 ## What the website does
 
+The guided browser workflow is now **Dataset → Train & compare → Test & compare
+→ Predict**. Prediction remains disabled until training and testing complete.
+
+### Interactive browser experiment
+
+The first training action loads Python/scikit-learn through Pyodide in a background
+worker. A fixed whole-day sample contains 14,401 fit rows (600 days through 2021),
+5,761 validation rows (240 days in 2022–2023), and all 17,496 reused test rows
+(729 days in 2024–2025), seed 42. Training-only Extra Trees importance and correlation
+pruning select 24 of 146 pre-engineered candidate inputs. The browser fits Logistic
+Regression, Random Forest, Extra Trees and Histogram Gradient Boosting. Required
+imputation/scaling fit only on training data. Validation window coverage selects
+the winner; testing compares every candidate without changing the winner.
+
+Date prediction then uses that **newly fitted browser model**, not the preloaded
+research XGBoost model. Model state stays in the tab and resets on reload. The
+initial runtime/package download and fitting can take several minutes. Browser
+sample scores may differ from the full experiment; this is a chronological
+train/validation/test experiment, not the full notebook's five-fold CV.
+
+### Full Python research reference
+
+The original fitted XGBoost model, five-fold CV results, model-comparison tables,
+and independent reference archive evaluation remain separately labeled on the site.
+The following original-model description and historical figures refer to that
+reference, not the newly trained browser sample. The notebook remains the route
+for reproducing the complete Python experiment.
+
 1. Enter a complete historical 2024/2025 date, such as `2025-07-15`.
 2. Retrieve its archived, selected predictor values.
-3. Evaluate the actual fitted 300-tree XGBoost model inside the browser.
+3. After Train/Test, evaluate the validation-selected browser model (or separately verify the full XGBoost reference).
 4. Return the central predicted hour and surrounding three-hour window.
 5. Explore hourly model rankings, inspect inputs, optionally view recorded demand,
    and download the prediction as CSV.

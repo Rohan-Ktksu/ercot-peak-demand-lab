@@ -1,0 +1,18 @@
+{
+  "status": "passed",
+  "browser": "Pyodide in in-app browser, local preview",
+  "prediction_locked_before_training_and_test": true,
+  "candidate_models_trained": 4,
+  "training_rows": 14401,
+  "validation_rows": 5761,
+  "test_rows": 17496,
+  "selected_features": 24,
+  "validation_selected_browser_model": "Histogram Gradient Boosting",
+  "browser_validation_window_coverage": 0.8291666666666667,
+  "test_model_year_comparisons": 8,
+  "prediction_unlocked_after_test": true,
+  "prediction_uses_browser_trained_model": true,
+  "example_date": "2025-07-15",
+  "example_window_central": "3:00 PM to 6:00 PM",
+  "note": "Browser runtime/library versions can change fitting results. These are sample experiment observations, not the full Python reference metrics."
+}
