@@ -22,7 +22,7 @@ async function loadYear(year) {
   return years.get(year);
 }
 function setBusy(busy) {
-  $('run-button').disabled=busy||!window.ercotLab?.tested;
+  $('run-button').disabled=busy||(!window.ercotLab?.tested&&Number($('date').value.slice(0,4))<2026);
   $('run-button').innerHTML=busy?'Running model…':'Run prediction <span aria-hidden="true">↗</span>';
   document.querySelectorAll('.example').forEach(button=>{button.disabled=busy||!window.ercotLab?.tested;});
   $('result').setAttribute('aria-busy',String(busy));
@@ -34,8 +34,9 @@ function zoneName(time) {return zoneFormat.formatToParts(time).find(part=>part.t
 async function predict(date, updateURL=true) {
   const sequence = ++requestSequence;
   clearError();
+  if (/^20(2[6-9]|30)-\d{2}-\d{2}$/.test(date)) { await approximateFuture(date, sequence); return; }
   if (!/^202[45]-\d{2}-\d{2}$/.test(date)) {
-    showError('Choose a historical date from January 2024 to December 2025. A future forecast needs current load and weather inputs.');return;
+    showError('Choose 2024–2025 for historical prediction, or 2026–2030 for a historical-pattern approximation.');return;
   }
   if (!window.ercotLab?.tested) {showError('Train, compare and test the browser models first.');return;}
   setBusy(true);$('loading').hidden=false;$('loading').textContent='Reading archived inputs and running the 300 fitted trees…';
@@ -53,6 +54,7 @@ async function predict(date, updateURL=true) {
     $('center-hour').textContent=hourFormat.format(prediction.peakStart)+' – '+hourFormat.format(prediction.peakEnd);
     $('zone').textContent=zoneName(prediction.peakStart)+' / CENTRAL TIME';
     const metrics=research.diagnostics.find(row=>row.year===Number(date.slice(0,4))&&row.model===research.model_key);
+    document.querySelector('.coverage-card>p').textContent='Historical coverage of the full Python reference model, not a confidence percentage for this date or the browser model.';
     $('coverage-label').textContent='PYTHON REFERENCE · '+date.slice(0,4);
     $('coverage').textContent=(metrics.within_one_hour_accuracy*100).toFixed(1)+'%';
     $('exact').textContent=percent(metrics.exact_peak_hour_accuracy);
@@ -151,6 +153,7 @@ async function evaluateArchive() {
   finally{button.disabled=false;}
 }
 
+$('date').addEventListener('change',()=>setBusy(false));
 $('prediction-form').noValidate=true;
 $('prediction-form').addEventListener('submit',event=>{event.preventDefault();predict($('date').value);});
 document.querySelectorAll('.example').forEach(button=>button.addEventListener('click',()=>predict(button.dataset.date)));
@@ -171,3 +174,27 @@ async function initialize() {
 }
 window.addEventListener('ercot-lab-tested',()=>{setBusy(false);predict($('date').value);});
 initialize();
+
+async function approximateFuture(date, sequence){
+ setBusy(true);
+ try{
+  const parsed=new Date(date+'T12:00:00Z');if(Number.isNaN(parsed.valueOf())||parsed.toISOString().slice(0,10)!==date)throw Error('Enter a valid calendar date.');
+  const data=await getJSON('data/future-approximation.json');if(sequence!==requestSequence)return;const month=parsed.getUTCMonth()+1,weekday=(parsed.getUTCDay()+6)%7;
+  const group=data.groups[month+'-'+weekday];
+  // Resolve the chosen local civil hour via Intl, including future DST offsets.
+  let peak=Date.parse(date+'T'+String(group.hour).padStart(2,'0')+':00:00Z');
+  for(let i=0;i<2;i++){const parts=new Intl.DateTimeFormat('en-CA',{timeZone:zone,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(peak);const v=Object.fromEntries(parts.map(p=>[p.type,p.value]));const represented=Date.parse(`${v.year}-${v.month}-${v.day}T${v.hour}:${v.minute}:00Z`);peak+=Date.parse(date+'T'+String(group.hour).padStart(2,'0')+':00:00Z')-represented;}
+  current=null;$('download-prediction').disabled=true;
+  $('result-date').textContent=date+' / FUTURE APPROXIMATION';$('zone').textContent=zoneName(peak)+' / CENTRAL TIME';
+  $('window-title').textContent=hourFormat.format(peak-3600000)+' – '+hourFormat.format(peak+7200000);
+  $('center-hour').textContent='Historical-pattern center: '+hourFormat.format(peak);
+  document.querySelector('.result-note').textContent=`APPROXIMATION ONLY. Based on ${group.examples} historical days with the same month and weekday, trained through ${data.training_end}. No future actual demand, recent load or forecast weather is supplied. This may be substantially wrong.`;
+  $('chart').replaceChildren();$('input-table').replaceChildren();$('chart-note').textContent='No hourly future demand curve is generated. Historical-pattern estimate only.';
+  $('coverage-label').textContent='PATTERN BASELINE · REUSED DIAGNOSTICS';
+  const n=data.diagnostics.reduce((a,r)=>a+r.days,0);const rate=data.diagnostics.reduce((a,r)=>a+r.coverage*r.days,0)/n;
+  $('coverage').textContent=(100*rate).toFixed(1)+'%';$('exact').textContent='Not estimated for this date';
+  document.querySelector('.coverage-card>p').textContent='Historical three-hour coverage of this separate seasonal/weekday approximation on reused 2024–2025 days. This is not the probability or guaranteed accuracy of your future prediction.';
+  $('loading').hidden=true;$('error').hidden=true;$('result').setAttribute('aria-busy','false');
+ }catch(error){if(sequence===requestSequence)showError(error.message);}
+ finally{if(sequence===requestSequence)setBusy(false);}
+}

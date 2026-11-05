@@ -206,3 +206,9 @@ contains no Sites account configuration, hosting token or private service secret
 Future work should compare frozen candidates on genuinely untouched later dates
 with validated feed availability. This independent student project is not affiliated
 with ERCOT or EIA. The Michigan website and repository remain separate.
+
+## Future-date approximation: 2026–2030
+
+Future dates produce a three-hour approximate peak-demand window using historical month/weekday patterns. This separate calendar baseline uses training days through December 29, 2023. It selects the three-hour window containing the most training-day peaks in each group. It does not invent future load or weather, and can run before browser training.
+
+Reused historical coverage: 71.58% in 2024 (366 days), 73.28% in 2025 (363 days). These are historical diagnostics, not confidence percentages for future dates. Weather, holidays and structural changes can move the actual peak outside the window. No future MW curve is fabricated. Historical model predictions still require browser training/testing.
