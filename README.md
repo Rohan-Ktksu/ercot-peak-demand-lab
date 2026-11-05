@@ -7,10 +7,13 @@ electricity system and presents a **three-hour window centered on that hour**.
 This is a separate companion to the [Michigan Outage Lab](https://rohan-ktksu.github.io/michigan-powercut-model/).
 It predicts electricity **demand timing**, not power cuts, causes or restoration.
 
-**GitHub Pages deployment target:** https://rohan-ktksu.github.io/ercot-peak-demand-lab/
+**Public website:** [Open ERCOT Peak Demand Lab](https://rohan-ktksu.github.io/ercot-peak-demand-lab/)
 
-The target becomes available after GitHub Pages is enabled and its build finishes.
-The existing owner-private preview is [hosted on Sites](https://ercot-peak-demand-rohan.mgorumutchu.chatgpt.site).
+**Repository:** [Rohan-Ktksu/ercot-peak-demand-lab](https://github.com/Rohan-Ktksu/ercot-peak-demand-lab)
+
+The website is deployed with GitHub Pages from `main` → `/docs`. The public link
+does not require ChatGPT sign-in. A separate owner-private development preview
+also exists on Sites; the GitHub Pages link above is the public project website.
 
 ## What the website does
 
