@@ -1,0 +1,19 @@
+{
+  "raw_demand_rows": 99481,
+  "raw_demand_columns": 6,
+  "raw_weather_rows": 280512,
+  "raw_weather_columns": 5,
+  "raw_demand_missing_cells": 99817,
+  "raw_weather_missing_cells": 0,
+  "duplicate_demand_timestamps": 0,
+  "duplicate_weather_keys": 0,
+  "modeling_rows": 91465,
+  "training_rows": 73921,
+  "gap_rows": 48,
+  "test_2024_rows": 8784,
+  "test_2025_rows": 8712,
+  "candidate_features": 146,
+  "selected_features": 24,
+  "missing_candidate_inputs": 560976,
+  "missing_selected_inputs": 203493
+}

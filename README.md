@@ -17,49 +17,37 @@ also exists on Sites; the GitHub Pages link above is the public project website.
 
 ## What the website does
 
-The guided browser workflow is now **Dataset → Train & compare → Test & compare
-→ Predict**. Prediction remains disabled until training and testing complete.
+The website presents the completed experiment as a sequential **pipeline with recorded outputs**:
 
-### Interactive browser experiment
+1. Import/profile: source row and column counts.
+2. Clean/validate: duplicates, missing predictor cells and eligible modeling rows.
+3. Extract/engineer: 146 calendar, load-history and archived forecast inputs.
+4. Split: chronological folds and final training/diagnostic row counts.
+5. Preprocess/select: training-only transformations and reduction to 24 inputs.
+6. Compare: all 12 recorded five-fold configurations, including baselines.
+7. Refit/inspect: selected XGBoost model and reused 2024–2025 diagnostic metrics.
+8. Predict: enter a date without waiting for training or uploading datasets.
 
-The first training action loads Python/scikit-learn through Pyodide in a background
-worker. A fixed whole-day sample contains 14,401 fit rows (600 days through 2021),
-5,761 validation rows (240 days in 2022–2023), and all 17,496 reused test rows
-(729 days in 2024–2025), seed 42. Training-only Extra Trees importance and correlation
-pruning select 24 of 146 pre-engineered candidate inputs. The browser fits Logistic
-Regression, Random Forest, Extra Trees and Histogram Gradient Boosting. Required
-imputation/scaling fit only on training data. Validation window coverage selects
-the winner; testing compares every candidate without changing the winner.
+These displayed outputs come from the completed Python experiment; the page does
+not simulate a new training run. `docs/data/pipeline-summary.json` records source
+and engineered-dataset counts; model comparison metrics come from the existing
+research export. Reproduce training with the downloadable notebook.
 
-Date prediction then uses that **newly fitted browser model**, not the preloaded
-research XGBoost model. Model state stays in the tab and resets on reload. The
-initial runtime/package download and fitting can take several minutes. Browser
-sample scores may differ from the full experiment; this is a chronological
-train/validation/test experiment, not the full notebook's five-fold CV.
+### Date prediction
 
-### Full Python research reference
+- **2024–2025:** run the fitted 24-feature, 300-tree XGBoost model on archived
+  selected inputs. July 15, 2025 gives a central 4–5 PM CDT interval and 3–6 PM
+  surrounding window. Actual target demand does not enter the classifier.
+- **2026–2030:** default to a historical month/weekday three-hour approximation.
+  No synthetic data or recent load readings are required for this separate baseline.
+- **Optional synthetic scenario:** use the separately labeled historical-analog
+  load/weather scenario with the fitted reference model. Future accuracy is unknown.
 
-The original fitted XGBoost model, five-fold CV results, model-comparison tables,
-and independent reference archive evaluation remain separately labeled on the site.
-The following original-model description and historical figures refer to that
-reference, not the newly trained browser sample. The notebook remains the route
-for reproducing the complete Python experiment.
-
-1. Enter a complete historical 2024/2025 date, such as `2025-07-15`.
-2. Retrieve its archived, selected predictor values.
-3. After Train/Test, evaluate the validation-selected browser model (or separately verify the full XGBoost reference).
-4. Return the central predicted hour and surrounding three-hour window.
-5. Explore hourly model rankings, inspect inputs, optionally view recorded demand,
-   and download the prediction as CSV.
-
-For July 15, 2025, the predicted central interval is **4–5 PM CDT**, with a displayed
-window of **3–6 PM CDT**. All times use America/Chicago with daylight-saving offsets.
-The website also compares models, runs a complete 729-day historical evaluation,
-and supplies the lab notebook, Python code and source datasets for download.
-
-The browser uses actual fitted-tree inference, not hardcoded date-to-window lookup
-or simulated training. Recorded demand is stored separately for retrospective
-charts/evaluation and is never passed to the classifier as an input.
+All times use America/Chicago, including DST. Historical rankings, recorded demand,
+input inspection and CSV export remain available. The 729-day reference evaluation
+can also be recomputed in-browser. Training/Test buttons and the Pyodide dependency
+have been removed from the active page; the earlier browser experiment files are
+retained as previous implementation artifacts and are not loaded by this interface.
 
 ## Research progression and objective
 
@@ -194,7 +182,7 @@ contains no Sites account configuration, hosting token or private service secret
 
 ## Limitations and next work
 
-- Historical illustration only: future dates need fresh as-of load/weather inputs.
+- Historical results do not establish future accuracy. Weather-aware forecasts need fresh as-of load/weather; calendar approximations use historical patterns only.
 - Historical source revisions are not publication-time vintages.
 - A two-hour load delay and six-hour weather allowance are research assumptions.
 - Served demand can fall during load shedding; this is not unconstrained demand.
@@ -209,9 +197,9 @@ with ERCOT or EIA. The Michigan website and repository remain separate.
 
 ## Future-date approximation: 2026–2030
 
-Future dates produce a three-hour approximate peak-demand window using historical month/weekday patterns. This separate calendar baseline uses training days through December 29, 2023. It selects the three-hour window containing the most training-day peaks in each group. It does not invent future load or weather, and can run before browser training.
+Future dates produce a three-hour approximate peak-demand window using historical month/weekday patterns. This separate calendar baseline uses training days through December 29, 2023. It selects the three-hour window containing the most training-day peaks in each group. It does not invent future load or weather; no training is needed on the page.
 
-Reused historical coverage: 71.58% in 2024 (366 days), 73.28% in 2025 (363 days). These are historical diagnostics, not confidence percentages for future dates. Weather, holidays and structural changes can move the actual peak outside the window. No future MW curve is fabricated. Historical model predictions still require browser training/testing.
+Reused historical coverage: 71.58% in 2024 (366 days), 73.28% in 2025 (363 days). These are historical diagnostics, not confidence percentages for future dates. Weather, holidays and structural changes can move the actual peak outside the window. No future MW curve is fabricated. Historical predictions use the already-fitted reference model immediately.
 
 ### Synthetic scenario option
 Check the synthetic-input option for 2026–2030 to run the full exported XGBoost reference model on an explicitly simulated scenario. Each month/weekday profile borrows all 24 selected input features from a complete 2023 historical analog day nearest mid-month. This includes engineered previous-day, 2/7/14-day load and archived forecast-weather inputs. Calendar inputs are updated for the requested date. Historical target MW is not copied or presented as future demand. DST days contain 23 or 25 actual hourly intervals.
