@@ -208,13 +208,13 @@ async function simulateFuture(date,sequence){
  const {rows,source}=scenarioRows(date,profiles,model.features);
  const result=inferDay(model,rows);
  current={date,rows,features:model.features,modelName:'SYNTHETIC SCENARIO / full reference XGBoost',...result};
- $('result-date').textContent=date+' / SYNTHETIC SIMULATION';
+ $('result-date').textContent=date+' / APPROXIMATE PEAK-DEMAND WINDOW';
  $('window-title').textContent=hourFormat.format(result.windowStart)+' – '+hourFormat.format(result.windowEnd);
- $('center-hour').textContent='Simulated center: '+hourFormat.format(result.peakStart);
+ $('center-hour').textContent='Approximate peak hour: '+hourFormat.format(result.peakStart);
  $('zone').textContent=zoneName(result.peakStart)+' / CENTRAL TIME';
- document.querySelector('.result-note').textContent='SIMULATION ONLY — NOT A REAL FORECAST. Synthetic inputs reuse a 2023 historical analog ('+source+'), including previous-day, 2/7/14-day load features and weather. Calendar features are updated for your date. Future demand and weather are unknown; this window can be wrong. No validated future accuracy is available.';
- $('coverage-label').textContent='SYNTHETIC SCENARIO';$('coverage').textContent='Not validated';$('exact').textContent='Not available';
- document.querySelector('.coverage-card>p').textContent='No real future observations exist in this scenario. Historical model scores do not measure synthetic scenario accuracy. Simulations are excluded from training and testing metrics.';
+ document.querySelector('.result-note').textContent='APPROXIMATION using synthetic inputs based on a 2023 historical day ('+source+'), including previous-day, 2/7/14-day load features and weather. Calendar features are updated for your date. Actual peak timing may differ as demand and weather change. Future accuracy has not been measured.';
+ $('coverage-label').textContent='APPROXIMATION ACCURACY';$('coverage').textContent='Not yet measured';$('exact').textContent='Not available';
+ document.querySelector('.coverage-card>p').textContent='This approximation uses synthetic historical-pattern inputs. Its accuracy on future dates has not been measured. These estimates are excluded from training and testing metrics.';
  chartView='ranking';renderChart();renderInputs();
  $('chart-note').textContent='Synthetic-input model ranking, not a real demand curve or calibrated probability. The demand view is unavailable for synthetic scenarios.';
  $('download-prediction').disabled=true;$('loading').hidden=true;
