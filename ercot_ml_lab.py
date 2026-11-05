@@ -1,23 +1,23 @@
 # %% [markdown]
 # # Machine Learning Lab: Predicting a Three-Hour Electricity Peak-Demand Window
-# **Subject:** Machine Learning | **Institution:** REVA University  
+# **Subject:** Machine Learning | **Institution:** REVA University
 # **Dataset:** Official ERCOT-reported hourly electricity demand, published by EIA-930.
-# 
+#
 # ## Aim
 # Build and explain a complete Python machine learning pipeline. Given a supported
 # historical date, retrieve its available past demand and archived weather forecasts,
 # predict the central peak-demand hour, and display a surrounding **three-hour window**.
-# 
+#
 # This predicts **ERCOT system electricity demand**, not power cuts or household use.
 # ERCOT does not cover every part of Texas. The target is reported served demand in MW.
-# 
+#
 # ## Experiment flow
 # Import libraries → import datasets → profile and visualize → clean and validate →
 # extract/engineer features → chronological split → fit missing-value handling and
 # scaling on training data → select features inside each fold → train several models
 # → compare cross-validation metrics → select a compact model → refit → evaluate
 # already-examined historical years → save/reload → accept a date → print a window.
-# 
+#
 # **Important:** calendar/lag construction is deterministic and respects issue time.
 # Learned transformations and selection never fit on validation or diagnostic labels.
 # The 2024–2025 years were inspected earlier; they are **reused diagnostics**, not a
@@ -26,27 +26,27 @@
 # %% [markdown]
 # ## Upload this folder and run
 # This folder contains only `ERCOT_Lab.ipynb`, `demand.csv`, and `weather.csv`.
-# 
+#
 # **Google Drive route:** upload the entire `ERCOT_Colab_Upload` folder to My Drive.
 # Open `ERCOT_Lab.ipynb` with Google Colab. Before section 2, insert and run:
-# 
+#
 # ```python
 # from google.colab import drive
 # drive.mount('/content/drive')
 # ```
-# 
+#
 # Then set this in section 2:
-# 
+#
 # ```python
 # PROJECT_FOLDER = "/content/drive/MyDrive/ERCOT_Colab_Upload"
 # ```
-# 
+#
 # Run the remaining cells in order. Approve Drive access yourself when Google asks.
 # If the folder is inside another Drive folder, adjust that path accordingly.
-# 
+#
 # **Direct Colab route:** upload both CSVs into the runtime Files panel and open the
 # notebook. Leave `PROJECT_FOLDER = None`. No Drive mount is needed for that route.
-# 
+#
 # The notebook creates an `outputs/` folder only when run. Do not upload JSON source
 # notes, old result files, or the combined engineered dataset. Training calculates
 # features and metrics again. Enter a supported historical date at the final prompt.
@@ -144,11 +144,11 @@ print("Time zone:", LOCAL_TZ)
 # **Demand:** EIA's official ERCOT (ERCO) workbook extraction, July 2015 onward. Its
 # CSV retains original reported demand and audit fields. Operator forecasts and EIA
 # adjusted/imputed demand are excluded from our predictor list and target replacement.
-# 
+#
 # **Weather:** archived 48-hour-lead JMA forecasts via Open-Meteo for Dallas, Houston,
 # Austin and San Antonio, 2018–2025. These are city proxies, not load-weighted ERCOT
 # weather. Forecasts, rather than observed target-day weather, are used.
-# 
+#
 # File hashes detect changes to the supplied datasets. Attribution, source URLs and verification hashes
 # are embedded in the import cell below; no JSON upload is needed. Open-Meteo/JMA weather: CC BY 4.0.
 
@@ -197,7 +197,7 @@ display(raw.select_dtypes(include="number").describe().round(2))
 # reject duplicate keys, convert demand to numeric and mark invalid values missing.
 # Shift hour-ending timestamps back one hour to represent interval starts, sort and
 # reindex the hourly grid. Conflicting duplicates require review rather than averaging.
-# 
+#
 # We do not blindly delete high demand as an outlier: genuine extremes are important.
 # The 500,000 MW check is only a generous plausibility guard. Missing actual targets
 # remain missing; complete-day filtering happens after creating the local-day grid.
@@ -245,7 +245,7 @@ plt.show()
 # **Extraction** obtains hour, weekday, month, holidays and cyclic encodings from
 # timestamps. **Engineering** constructs lagged demand, historical summaries, prior
 # peak timing and standardized historical load shapes.
-# 
+#
 # Each target day is issued at local midnight. Source load intervals must end before
 # the assumed two-hour reporting cutoff. The previous day is partial; 2/7/14-day
 # profiles are historical. Unknown hours stay missing. DST days have 23 or 25 intervals.
@@ -367,7 +367,7 @@ display(frame[["local_date", "target_mw", "peak_label"] + CAL_FEATURES[:5]].head
 # forecast daily temperature statistics, forecast curve shape and heating/cooling
 # proxies. Daily summaries use predictions available before issue time, not later
 # weather observations.
-# 
+#
 # Require valid time minus 48 hours plus a six-hour allowance to precede issue time.
 # This is a documented availability assumption, not a verified publication log.
 # Keep pre-2018 weather missing instead of backfilling it with future observations.
@@ -450,7 +450,7 @@ print("Timestamp, target and leakage validation: PASSED")
 # The final training period ends before December 30, 2023. December 30–31 form a
 # two-day gap before the 2024 diagnostic period. For cross-validation, five expanding
 # training blocks validate the next 365 calendar days, also with two-day gaps.
-# 
+#
 # The diagnostic years 2024 and 2025 were examined in earlier work. Their results
 # will be labeled reused diagnostics and **cannot select the winner**. Ordinary
 # random train/test splitting or shuffled KFold would mix past and future.
@@ -488,12 +488,12 @@ display(split_preview)
 # **Logistic Regression:** training-fitted median imputation followed by StandardScaler.
 # **Random Forest / Extra Trees:** training-fitted median imputation; no scaling needed.
 # **HGB / XGBoost:** retain missing inputs for native missing-value handling; no scaling needed.
-# 
+#
 # The illustration below uses only the first fold's training rows. It is not fed to
 # the other folds: each actual model pipeline refits its transformations inside its
 # own training fold. Fitting an imputer/scaler once on the whole dataset before
 # cross-validation would leak information.
-# 
+#
 # Scaling makes training columns roughly zero mean and unit variance. It changes
 # units, not which future observations are available. Labels are never imputed or scaled.
 
@@ -518,7 +518,7 @@ del scaled_training  # Keep the notebook's memory use modest.
 # ## 12. Plan the models, feature budgets and selection rule
 # Compare twelve configurations covering seven estimator types plus two baselines.
 # The full 146-input HGB is a reference; compact candidates must use at most 40 inputs.
-# 
+#
 # Primary metric: **three-hour window coverage**, equivalent to the actual peak
 # being within one hour of the predicted interval. Secondary metrics: exact hour
 # and average absolute timing error. Choose the smallest compact feature budget
@@ -553,7 +553,7 @@ display(pd.DataFrame({"configuration": CANDIDATES}))
 # importance on 96 evenly spaced training days from its last 730 available days,
 # using two permutations and negative log loss. Remove constant/all-missing inputs
 # and lower-ranked features whose absolute training correlation exceeds 0.98.
-# 
+#
 # Then refit HGB with 12/24/40 retained features. The other compact families use the
 # same 24-feature ranking for a controlled comparison. Importance describes
 # in-sample model reliance, not causation or unbiased effect size. Outer temporal
@@ -664,14 +664,14 @@ def candidates_with_selection(training, full, ordering):
 # ## 15. Define meaningful metrics
 # For each complete local day, select one predicted interval and compare it with
 # the earliest actual maximum. Example: predicted 4–5 PM → displayed window 3–6 PM.
-# 
+#
 # | Metric | Meaning |
 # | --- | --- |
 # | Exact-hour accuracy | Predicted interval exactly equals the actual peak interval |
 # | Three-hour window coverage | Actual peak interval lies in the surrounding three hourly intervals |
 # | Timing MAE in hours | Mean absolute difference between predicted and actual peak starts |
 # | Demand regret (%) | How far below the day's actual maximum the chosen hour's actual demand was |
-# 
+#
 # Exact and within-one-hour scores are not added together. Ordinary hourly binary
 # accuracy is misleading because most hours are not the daily peak. With exactly
 # one predicted and one actual peak hour per day, top-one precision, recall and F1
@@ -892,7 +892,7 @@ print("The CSV has one timestamp, six metadata/label fields and the selected inp
 # historical features for that date, passes **only selected input columns** to the
 # fitted model, chooses its highest-scoring interval, then expands it by one hour
 # on each side. Actual target values do not enter the model call.
-# 
+#
 # Supported illustrations are complete 2024/2025 dates. New/future dates need current
 # as-of demand and forecast weather; the notebook rejects them rather than inventing
 # observations. Missing-target dates `2025-12-04` and `2025-12-05` are unavailable.
@@ -947,7 +947,7 @@ examples = [predict_window(date) for date in ["2024-01-15", "2024-07-15", "2025-
 # When running interactively, type a date and press Enter. Press Enter without a
 # date to use the example. If the date is unavailable, read the message and rerun
 # this cell with another date; **you do not need to retrain the models**.
-# 
+#
 # Automated verification disables the prompt through an environment variable and
 # prints the default example. In a normal Jupyter/Colab session the prompt is enabled.
 
@@ -974,17 +974,17 @@ except (ValueError, TypeError) as error:
 # chronological CV with a gap; training-only transformations/selection; baseline
 # comparison; fixed selection rule; feature-importance caveats; model save/reload;
 # input validation; and the limits of historical versus live predictions.
-# 
+#
 # The most important correction to the usual lab order is: **split first, then fit
 # imputers, scalers and selectors on training data only**, repeating this within CV.
 # Deterministic calendar and as-of historical feature construction may precede this.
-# 
+#
 # Use the printed tables for your lab observations and conclusion. A smaller model
 # does not guarantee higher accuracy. Exact-hour accuracy and three-hour coverage
 # measure different things; neither establishes prospective operating performance.
 # 2024/2025 remain reused diagnostics, and 2026 is not evaluated. Future operational
 # validation needs genuinely new outcomes and verified feed availability.
-# 
+#
 # Sources: [EIA demand and quality notes](https://www.eia.gov/electricity/930-content/about.html),
 # [Open-Meteo archived forecasts](https://open-meteo.com/en/docs/previous-runs-api),
 # [sklearn temporal CV](https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.TimeSeriesSplit).

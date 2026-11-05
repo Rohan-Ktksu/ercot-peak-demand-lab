@@ -71,7 +71,7 @@ for cell in book.cells:
         python_parts.append('# %%\n' + cell.source)
     else:
         python_parts.append('# %% [markdown]\n' + '\n'.join('# ' + line for line in cell.source.splitlines()))
-(DIST / 'downloads/ercot_ml_lab.py').write_text('\n\n'.join(python_parts) + '\n', encoding='utf-8')
+(DIST / 'downloads/ercot_ml_lab.py').write_text('\n'.join(line.rstrip() for line in '\n\n'.join(python_parts).splitlines()) + '\n', encoding='utf-8')
 with zipfile.ZipFile(DIST / 'downloads/ERCOT_raw_datasets.zip', 'w', zipfile.ZIP_DEFLATED) as archive:
     for name in ['demand.csv', 'weather.csv']:
         archive.write(ROOT / 'data' / name, name)
