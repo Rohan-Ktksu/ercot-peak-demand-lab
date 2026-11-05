@@ -38,7 +38,7 @@ research export. Reproduce training with the downloadable notebook.
 - **2024–2025:** run the fitted 24-feature, 300-tree XGBoost model on archived
   selected inputs. July 15, 2025 gives a central 4–5 PM CDT interval and 3–6 PM
   surrounding window. Actual target demand does not enter the classifier.
-- **2026–2030:** default to a historical month/weekday three-hour approximation.
+- **2026:** default to a historical month/weekday three-hour approximation.
   No synthetic data or recent load readings are required for this separate baseline.
 - **Optional synthetic scenario:** use the separately labeled historical-analog
   load/weather scenario with the fitted reference model. Future accuracy is unknown.
@@ -195,13 +195,13 @@ Future work should compare frozen candidates on genuinely untouched later dates
 with validated feed availability. This independent student project is not affiliated
 with ERCOT or EIA. The Michigan website and repository remain separate.
 
-## Future-date approximation: 2026–2030
+## Future-date approximation: 2026
 
 Future dates produce a three-hour approximate peak-demand window using historical month/weekday patterns. This separate calendar baseline uses training days through December 29, 2023. It selects the three-hour window containing the most training-day peaks in each group. It does not invent future load or weather; no training is needed on the page.
 
 Reused historical coverage: 71.58% in 2024 (366 days), 73.28% in 2025 (363 days). These are historical diagnostics, not confidence percentages for future dates. Weather, holidays and structural changes can move the actual peak outside the window. No future MW curve is fabricated. Historical predictions use the already-fitted reference model immediately.
 
 ### Synthetic scenario option
-Check the synthetic-input option for 2026–2030 to run the full exported XGBoost reference model on an explicitly simulated scenario. Each month/weekday profile borrows all 24 selected input features from a complete 2023 historical analog day nearest mid-month. This includes engineered previous-day, 2/7/14-day load and archived forecast-weather inputs. Calendar inputs are updated for the requested date. Historical target MW is not copied or presented as future demand. DST days contain 23 or 25 actual hourly intervals.
+Check the synthetic-input option for 2026 to run the full exported XGBoost reference model on an explicitly simulated scenario. Each month/weekday profile borrows all 24 selected input features from a complete 2023 historical analog day nearest mid-month. This includes engineered previous-day, 2/7/14-day load and archived forecast-weather inputs. Calendar inputs are updated for the requested date. Historical target MW is not copied or presented as future demand. DST days contain 23 or 25 actual hourly intervals.
 
 This is historical-analog resampling, not newly measured 2026 data, a weather forecast, or a validated operational forecast. No synthetic outcomes are added to training, validation or test scores. Future scenario accuracy is unknown and the interface labels the result **Approximate peak-demand window**, identifies the synthetic inputs, and shows future accuracy as **Not yet measured**. The chart shows only uncalibrated model ranking; it does not fabricate a future demand curve. Run `node verify-synthetic.mjs` for winter/summer, DST, input-width and inference checks.

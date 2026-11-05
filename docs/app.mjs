@@ -35,9 +35,9 @@ function zoneName(time) {return zoneFormat.formatToParts(time).find(part=>part.t
 async function predict(date, updateURL=true) {
   const sequence = ++requestSequence;
   clearError();
-  if (/^20(2[6-9]|30)-\d{2}-\d{2}$/.test(date)) { await approximateFuture(date, sequence, updateURL); return; }
+  if (/^2026-\d{2}-\d{2}$/.test(date)) { await approximateFuture(date, sequence, updateURL); return; }
   if (!/^202[45]-\d{2}-\d{2}$/.test(date)) {
-    showError('Choose 2024–2025 for historical prediction, or 2026–2030 for a historical-pattern approximation.');return;
+    showError('Choose 2024–2025 for historical prediction, or 2026 for a historical-pattern approximation.');return;
   }
   setBusy(true);$('loading').hidden=false;$('loading').textContent='Reading archived inputs and running the 300 fitted trees…';
   try {
