@@ -66,6 +66,7 @@ from exact accuracy. Changing the display does not make exact-hour accuracy high
 | Data | Contents | Scope |
 | --- | --- | --- |
 | `data/demand.csv` | 99,481 source hourly records, including reserved 2026 records | Official ERCOT (ERCO) reported demand from EIA-930, July 2015 onward |
+| `data/synthetic_ercot_inputs_2026.csv` | 8,760 synthetic hourly inputs; 146 candidates plus 7 provenance/time columns | 2026 daily analog scenarios; no actual demand targets; never used for fitting or accuracy |
 | `data/weather.csv` | 280,512 location-hour forecasts | JMA GSM nominal 48-hour-lead temperature, humidity and wind for four cities, 2018–2025 |
 | `data/selected_feature_dataset.csv` | 91,465 eligible hourly modeling rows, 31 CSV columns | Timestamp, labels/partition metadata and 24 selected inputs, 2015–2025 |
 
@@ -169,6 +170,38 @@ python ercot_ml_lab.py
 ```
 
 Or open `ERCOT_Lab.ipynb` in Jupyter/Colab and follow its data-location instructions.
+### Colab: direct upload, no Drive path settings
+
+Open [ERCOT_Lab.ipynb](ERCOT_Lab.ipynb) in Colab and upload these three CSVs into
+its left Files panel: [demand.csv](data/demand.csv), [weather.csv](data/weather.csv),
+and [synthetic_ercot_inputs_2026.csv](data/synthetic_ercot_inputs_2026.csv).
+Wait until all uploads finish, then run the cells in order. No Drive mount or
+folder-path editing is needed. A local repository checkout loads the same files
+from `data/` automatically. Source integrity checks normalize CRLF to LF before
+hashing so Windows/GitHub/Colab line-ending differences do not cause false errors.
+
+The single final prompt accepts 2024–2025 for historical predictions and 2026 for
+synthetic-input approximations. The original historical-only function remains
+available; `predict_date` dispatches to the correct path. Changing a date after
+training does not require retraining. Sections 24–25 validate the synthetic file,
+reuse the fitted model and print an **Approximate peak-demand window**. Future
+accuracy is not yet measured. Missing synthetic predictors retain the fitted
+model's existing handling; no preprocessing is refitted for inference.
+
+The supplied CSV uses complete 2023 analog days nearest mid-month with matching
+month/weekday. Calendar features are recomputed for 2026. Previous-day and
+2/7/14-day inputs come from each analog's historical context; these independent
+daily scenarios are not a continuous measured 2026 load history. There are no
+`target_mw` or `peak_label` columns. Synthetic rows never enter model selection,
+training, cross-validation or historical evaluation.
+
+The notebook's selected model can differ after retraining. The website defaults
+to a separate calendar approximation; its optional synthetic mode uses the frozen
+reference model. Do not interpret synthetic examples as observed 2026 accuracy.
+
+Run `python verify_colab_2026.py` to check notebook validity, CSV integrity,
+inference and DST handling against the saved model, without retraining.
+
 `export_model.py` rebuilds browser assets from this repository's fitted artifact,
 selected dataset, audit and source CSVs. Re-export and rerun verification together;
 do not manually reorder predictor columns.

@@ -24,6 +24,17 @@
 # new independent test. We do not use 2026 for fitting or accuracy reporting.
 
 # %% [markdown]
+# ## Direct upload: no Drive paths required
+# 1. Open this notebook in Google Colab.
+# 2. In Colab's left **Files** panel, upload `demand.csv`, `weather.csv`, and `synthetic_ercot_inputs_2026.csv`.
+# 3. Wait for all uploads to finish. Run the notebook cells in order.
+# 4. At the final prompt, enter a date: **2024-2025** uses historical inputs; **2026** uses synthetic inputs and prints an **Approximate peak-demand window**.
+#
+# Only demand and weather are used for the historical ML pipeline. Synthetic 2026 rows stay separate from training, feature selection and test metrics. Changing the final date after training does not require retraining.
+#
+# When running from a GitHub checkout, the same loader also finds the three CSVs in `data/`.
+
+# %% [markdown]
 # ## Upload this folder and run
 # This folder contains only `ERCOT_Lab.ipynb`, `demand.csv`, and `weather.csv`.
 #
@@ -101,32 +112,23 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import make_pipeline
 
 # %% [markdown]
-# ## 2. Locate the two uploaded CSVs
-# Leave `PROJECT_FOLDER = None` for Colab uploads to `/content`. The loader looks
-# beside the notebook and in `data/`. If files are missing in Colab, it opens a
-# chooser for both CSVs. Nothing is mounted from Drive. All times are interpreted
-# in **America/Chicago**, including daylight-saving changes.
+# ## 2. Read the three CSVs you uploaded
+# In Colab, click the **Files** icon on the left, click **Upload**, and select all three CSV files. Wait until every upload finishes, then run the cells in order. Keep filenames unchanged. No folder-path settings or Drive mounting are required.
+#
+# Runtime uploads disappear when Colab deletes the runtime. Download generated results before ending the session.
 
 # %%
-PROJECT_FOLDER = None  # Colab default: /content. Leave this unchanged for manual uploads.
-ROOT = Path(PROJECT_FOLDER).expanduser().resolve() if PROJECT_FOLDER else Path.cwd().resolve()
-if PROJECT_FOLDER is None and (ROOT / "ERCOT_Colab_Upload").is_dir():
-    ROOT = ROOT / "ERCOT_Colab_Upload"
-required_csvs = ["demand.csv", "weather.csv"]
-candidate_folders = [ROOT, ROOT / "data", ROOT / "ERCOT_ML_Lab" / "data"]
-DATA = next((folder for folder in candidate_folders
-             if all((folder / name).is_file() for name in required_csvs)), ROOT)
-
-if not all((DATA / name).is_file() for name in required_csvs):
-    if "google.colab" in sys.modules:
-        from google.colab import files
-        print("Upload both raw CSV files using their original names:", required_csvs)
-        files.upload()
-        DATA = ROOT
-    missing_files = [name for name in required_csvs if not (DATA / name).is_file()]
-    if missing_files:
-        raise FileNotFoundError("Upload these CSVs beside the notebook and rerun this cell: " + ", ".join(missing_files))
-
+# Upload the THREE CSVs into Colab's Files panel before running this cell.
+# No Drive mount, project-folder setting or file-path editing is needed.
+ROOT = Path("/content") if "google.colab" in sys.modules else Path.cwd()
+DATA = ROOT if all((ROOT / name).is_file() for name in ("demand.csv", "weather.csv", "synthetic_ercot_inputs_2026.csv")) else ROOT / "data"
+required_csvs = ["demand.csv", "weather.csv", "synthetic_ercot_inputs_2026.csv"]
+missing_files = [name for name in required_csvs if not (DATA / name).is_file()]
+if missing_files:
+    raise FileNotFoundError(
+        "Upload these files using Colab's left Files panel, then rerun this cell: "
+        + ", ".join(missing_files)
+    )
 OUT = ROOT / "outputs"
 OUT.mkdir(parents=True, exist_ok=True)
 LOCAL_TZ = "America/Chicago"
@@ -134,9 +136,9 @@ AVAILABILITY_DELAY_HOURS = 2
 SEED = 42
 pd.set_option("display.max_columns", 12)
 pd.set_option("display.max_rows", 40)
-print("CSV folder:", DATA)
-print("Output folder:", OUT)
-print("Time zone:", LOCAL_TZ)
+print("All three CSVs found. No Drive connection required.")
+print("Historical training inputs: demand.csv and weather.csv")
+print("2026 approximation inputs only: synthetic_ercot_inputs_2026.csv")
 
 
 # %% [markdown]
@@ -149,17 +151,17 @@ print("Time zone:", LOCAL_TZ)
 # Austin and San Antonio, 2018–2025. These are city proxies, not load-weighted ERCOT
 # weather. Forecasts, rather than observed target-day weather, are used.
 #
-# File hashes detect changes to the supplied datasets. Attribution, source URLs and verification hashes
+# File hashes normalize CRLF line endings to LF, then detect content changes to the supplied datasets. Attribution, source URLs and verification hashes
 # are embedded in the import cell below; no JSON upload is needed. Open-Meteo/JMA weather: CC BY 4.0.
 
 # %%
 def sha256(path):
-    with Path(path).open('rb') as stream:
-        return hashlib.file_digest(stream, 'sha256').hexdigest()
+    # Git may convert CSV line endings; normalize CRLF to LF before hashing.
+    return hashlib.sha256(Path(path).read_bytes().replace(b'\r\n', b'\n')).hexdigest()
 
 # Embedded source identities remove the need to upload JSON files.
-source = {'source_url': 'https://www.eia.gov/electricity/gridmonitor/knownissues/xls/ERCO.xlsx', 'csv_sha256': '482c0af5314bfa64e264826c4202ec879461f3695b93f3fec0f3c430a24f2bbb'}
-weather_source = {'source': 'Open-Meteo Previous Runs API / JMA GSM', 'docs': 'https://open-meteo.com/en/docs/previous-runs-api', 'csv_sha256': '50a26879434f59f32e34c39f0950f6b4e0f9ced43cbc162025b9a23525252f9d'}
+source = {'source_url': 'https://www.eia.gov/electricity/gridmonitor/knownissues/xls/ERCO.xlsx', 'csv_sha256': '93868fb1fcecf278a7f3c110c9c1b7f6640f2b3079968499d022a422df222e91'}
+weather_source = {'source': 'Open-Meteo Previous Runs API / JMA GSM', 'docs': 'https://open-meteo.com/en/docs/previous-runs-api', 'csv_sha256': '80f44a29c26c9b45b87d42c9cfef6f90d57d4e8be8678108918d49054b565bc3'}
 assert sha256(DATA / "demand.csv") == source["csv_sha256"]
 assert sha256(DATA / "weather.csv") == weather_source["csv_sha256"]
 raw = pd.read_csv(DATA / "demand.csv")
@@ -943,28 +945,13 @@ examples = [predict_window(date) for date in ["2024-01-15", "2024-07-15", "2025-
 (OUT / "window_examples.json").write_text(json.dumps(examples, indent=2), encoding="utf-8")
 
 # %% [markdown]
-# ## 22. Enter your date here
-# When running interactively, type a date and press Enter. Press Enter without a
-# date to use the example. If the date is unavailable, read the message and rerun
-# this cell with another date; **you do not need to retrain the models**.
-#
-# Automated verification disables the prompt through an environment variable and
-# prints the default example. In a normal Jupyter/Colab session the prompt is enabled.
+# ## 22. Historical example
+# The historical prediction functions above remain available. The single date-input prompt is now at the end of section 25, after the separate synthetic 2026 file has been validated. There is no second historical-only prompt to complete.
 
 # %%
-DEFAULT_DATE = "2025-07-15"
-ASK_FOR_DATE = os.environ.get("ERCOT_LAB_NONINTERACTIVE", "0") != "1"
-if ASK_FOR_DATE:
-    user_date = input(f"Enter a date YYYY-MM-DD [{DEFAULT_DATE}]: ").strip() or DEFAULT_DATE
-else:
-    user_date = DEFAULT_DATE
-    print("Automated notebook run: using example date", user_date)
+# Date entry is in the final section, which supports both historical and 2026 dates.
+print("Historical model ready. Continue to sections 24 and 25 for the date prompt.")
 
-try:
-    user_prediction = print_prediction(user_date)
-except (ValueError, TypeError) as error:
-    print("Prediction unavailable:", error)
-    print("Rerun this cell with a supported historical date; no retraining is required.")
 
 # %% [markdown]
 # ## 23. Conclusion and items added to complete the lab
@@ -1001,3 +988,112 @@ print("Selected compact model:", WINNER)
 print("Cross-validation:", len(fold_specification), "chronological folds;", len(folds), "comparisons")
 print("Final training rows:", len(training))
 print("All output files:", OUT)
+
+# %% [markdown]
+# ## 24. Validate separate synthetic 2026 inputs
+# The CSV has **8,760 hourly rows, 146 candidate inputs and 7 provenance/time columns**. For each date, the month/weekday analog is a complete 2023 day nearest the middle of that month. Its engineered load-history and archived forecast-weather features are reused as synthetic assumptions; calendar features are recomputed for 2026.
+#
+# These are independent daily scenarios, **not a continuous simulated 2026 load history**. Previous-day and 2/7/14-day features refer to the analog's historical context, not measured 2026 readings. DST creates a 23-hour day in March and a 25-hour day in November. No actual 2026 weather, demand targets or verified future accuracy is supplied.
+#
+# Keep the CSV outside the earlier training/CV/test steps. Use only `selected['columns']` for inference and reuse fitted preprocessing. Do not calculate accuracy, precision, recall or coverage against synthetic outcomes.
+
+# %%
+# This file is already uploaded beside the other two CSVs.
+scenario_path = DATA / "synthetic_ercot_inputs_2026.csv"
+synthetic_2026 = pd.read_csv(scenario_path)
+required = ["timestamp_start_utc", "local_date", "issue_time_utc", "is_synthetic", "source_analog_date"] + list(ALL_FEATURES)
+missing = sorted(set(required) - set(synthetic_2026))
+if missing:
+    raise ValueError(f"Missing synthetic columns: {missing}")
+if {"target_mw", "peak_label"}.intersection(synthetic_2026.columns):
+    raise ValueError("Synthetic input CSV must not contain invented target labels.")
+if not synthetic_2026.is_synthetic.astype(str).str.lower().eq("true").all():
+    raise ValueError("Every row must be identified as synthetic.")
+synthetic_2026["timestamp_start_utc"] = pd.to_datetime(synthetic_2026.timestamp_start_utc, utc=True, errors="raise")
+synthetic_2026["issue_time_utc"] = pd.to_datetime(synthetic_2026.issue_time_utc, utc=True, errors="raise")
+synthetic_2026 = synthetic_2026.set_index("timestamp_start_utc").sort_index()
+expected_grid = pd.date_range("2026-01-01", "2027-01-01", freq="h", inclusive="left", tz=LOCAL_TZ).tz_convert("UTC")
+if not synthetic_2026.index.equals(expected_grid):
+    raise ValueError("Expected the complete 8,760-hour local-year grid without duplicate timestamps.")
+local = synthetic_2026.index.tz_convert(LOCAL_TZ)
+if not np.array_equal(synthetic_2026.local_date.to_numpy(), local.strftime("%Y-%m-%d")):
+    raise ValueError("Local dates disagree with timestamps.")
+if not pd.to_datetime(synthetic_2026.source_analog_date).dt.year.eq(2023).all():
+    raise ValueError("This supplied scenario file must use 2023 historical analogs.")
+if not np.array_equal(synthetic_2026.issue_time_utc.array, local.normalize().tz_convert("UTC").array):
+    raise ValueError("Issue times must equal the start of each local prediction day.")
+for column in ALL_FEATURES:
+    synthetic_2026[column] = pd.to_numeric(synthetic_2026[column], errors="raise")
+if np.isinf(synthetic_2026[ALL_FEATURES].to_numpy()).any():
+    raise ValueError("Infinite synthetic input values are invalid.")
+calendar_check = calendar_features(synthetic_2026.index)
+np.testing.assert_allclose(synthetic_2026[calendar_check.columns], calendar_check)
+print("SYNTHETIC DATA VALIDATION: PASSED")
+print("Shape:", synthetic_2026.shape, "| days:", synthetic_2026.local_date.nunique())
+print("Candidate features:", len(ALL_FEATURES), "| selected model inputs:", len(selected["columns"]))
+print("Missing input cells:", int(synthetic_2026[ALL_FEATURES].isna().sum().sum()))
+print("Missing values use the fitted model's existing handling; do not refit preprocessing here.")
+print("Actual demand targets: absent. Future accuracy: not yet measured.")
+display(synthetic_2026[["local_date", "source_analog_date", "past_1d_candidate_load_mw", "forecast_temperature_c_dallas"]].head())
+
+
+# %% [markdown]
+# ## 25. Enter a date: historical prediction or 2026 approximation
+# At the final prompt, enter `YYYY-MM-DD`. For 2024-2025, use the fitted model on archived inputs. For 2026, use that same fitted model on synthetic historical-analog load/weather features, with the 2026 calendar recomputed.
+#
+# The 2026 output says **Approximate peak-demand window**. Actual timing may differ; future accuracy is not yet measured. Hourly ranking scores are not calibrated probabilities. The saved rankings contain no invented actual demand. Change the date and rerun this cell without retraining.
+
+# %%
+def predict_2026_approximation(date):
+    """Score supplied synthetic inputs using the already-fitted, selected model."""
+    if not isinstance(date, str) or re.fullmatch(r"2026-\d{2}-\d{2}", date.strip()) is None:
+        raise ValueError("Enter a 2026 date as YYYY-MM-DD.")
+    date = str(pd.Timestamp(date.strip()).date())
+    day = synthetic_2026.loc[synthetic_2026.local_date.eq(date)]
+    if day.empty:
+        raise ValueError("No synthetic inputs for this date.")
+    scores = np.asarray(scores_for(selected, day), dtype=float)
+    if len(scores) != len(day) or not np.isfinite(scores).all():
+        raise ValueError("Model returned invalid hourly rankings.")
+    peak = day.index[int(np.argmax(scores))]
+    window_start = (peak - pd.Timedelta(hours=1)).tz_convert(LOCAL_TZ)
+    window_end = (peak + pd.Timedelta(hours=2)).tz_convert(LOCAL_TZ)
+    table = pd.DataFrame({"hour_start_local": day.index.tz_convert(LOCAL_TZ).astype(str),
+                          "uncalibrated_hour_ranking": scores})
+    result = dict(date=date, model=WINNER, mode="Approximate peak-demand window",
+                  window_start=window_start.isoformat(), window_end=window_end.isoformat(),
+                  source_analog_date=day.source_analog_date.iloc[0],
+                  selected_features=len(selected["columns"]), future_accuracy="Not yet measured")
+    print("APPROXIMATE PEAK-DEMAND WINDOW")
+    print("Date:", date, "| Area: ERCOT system")
+    print(window_start.strftime("%d %b %Y, %I:%M %p %Z"), "to", window_end.strftime("%d %b %Y, %I:%M %p %Z"))
+    print("Approximate peak hour:", peak.tz_convert(LOCAL_TZ).strftime("%I:%M %p %Z"))
+    print("Model:", WINNER, "| selected inputs:", len(selected["columns"]))
+    print("Synthetic inputs based on historical day:", result["source_analog_date"])
+    print("Actual peak timing may differ as demand and weather change. Future accuracy: not yet measured.")
+    table.to_csv(OUT / f"approximation_2026_{date}.csv", index=False)
+    display(table)
+    return result
+
+def predict_date(date_text):
+    date_text = date_text.strip()
+    if re.fullmatch(r"\d{4}-\d{2}-\d{2}", date_text) is None:
+        raise ValueError("Enter the date as YYYY-MM-DD.")
+    year = pd.Timestamp(date_text).year
+    if year == 2026:
+        return predict_2026_approximation(date_text)
+    if year in (2024, 2025):
+        return print_prediction(date_text)
+    raise ValueError("Use 2024-2025 for historical prediction or 2026 for approximation.")
+
+# Changing the date does not require retraining.
+DEFAULT_DATE = "2026-07-15"
+if os.environ.get("ERCOT_LAB_NONINTERACTIVE", "0") == "1":
+    entered_date = DEFAULT_DATE
+else:
+    entered_date = input(f"Enter a date YYYY-MM-DD [{DEFAULT_DATE}]: ").strip() or DEFAULT_DATE
+try:
+    date_prediction = predict_date(entered_date)
+except (ValueError, TypeError) as error:
+    print("Prediction unavailable:", error)
+    print("Rerun only this cell with a valid supported date.")
